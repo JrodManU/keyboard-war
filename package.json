@@ -1,28 +1,23 @@
 {
-  "name": "keyboard-war",
+  "name": "keyboard-war-backend",
   "version": "1.0.0",
-  "description": "A simple typing pvp node game",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JrodManU/keyboard-war.git"
+    "url": "git+https://github.com/JrodManU/keyboard-war-backend.git"
   },
   "author": "JrodManU",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/JrodManU/keyboard-war/issues"
+    "url": "https://github.com/JrodManU/keyboard-war-backend/issues"
   },
-  "homepage": "https://github.com/JrodManU/keyboard-war#readme",
+  "homepage": "https://github.com/JrodManU/keyboard-war-backend#readme",
   "dependencies": {
-    "babel": "^6.23.0",
-    "body-parser": "^1.18.2",
+    "cors": "^2.8.4",
     "express": "^4.16.3",
-    "express-react-views": "^0.10.5",
-    "jsx": "^0.9.89",
-    "react": "^16.2.0",
-    "react-dom": "^16.2.0"
+    "socket.io": "^2.0.4"
   }
 }
