@@ -29,11 +29,13 @@ io.on('connection', (socket) => {
   sockets.push(socket);
   console.log('A user connected');
 
-  socket.on('disconnect', (socket) => {
-    console.log('A user disconnected')
-    sockets.filter((item) => {
+  socket.on('disconnect', () => {
+    quitSocketsGame(socket.id);
+    //removes the socket that disconnected
+    sockets = sockets.filter((item) => {
       return item.id !== socket.id;
     });
+    console.log('A user disconnected');
   });
 
   socket.on('create game', (name) => {
@@ -41,20 +43,63 @@ io.on('connection', (socket) => {
     games.push({
       id: idCounter,
       name: name,
-      player1Id: socket.id,
-      player2Id: null
+      socket1Id: socket.id,
+      socket2Id: null
     });
     idCounter++;
-    io.emit("update game list", JSON.stringify(games));
+    emitUpdatedGameList();
   });
 
-  socket.on('join game', (id) => {
+  socket.on('join game', (gameId) => {
     let game = games.find((item) => {
-      return item.id == id;
+      return item.id == gameId;
     });
     console.log("game " + game.name + " started");
-    game.player2Id = socket.id;
-    getSocket(game.player1Id).emit("game started", game);
+    game.socket2Id = socket.id;
+    getSocket(game.socket1Id).emit("game started", game);
     socket.emit("game started", game);
+    emitUpdatedGameList();
   });
+
+  socket.on('quit game', () => {
+    quitSocketsGame(socket.id);
+  })
 });
+
+function quitSocketsGame(socketId) {
+  let game = findGameBySocket(socketId);
+  if(game) {
+    getSocket(socketId).emit("game ended");
+    getOtherSocket(game, socketId).emit("game ended");
+    //removes the game
+    games = games.filter((item) => {
+      return item.id !== game.id;
+    });
+    console.log("game " + game.name + " has been terminated");
+  } else {
+    console.log("cannot quit, player is not in game");
+  }
+}
+
+function emitUpdatedGameList() {
+  io.emit("update game list", JSON.stringify(
+    games.filter((item) => {
+      //Will return games that have not been joined yet
+      return !item.socket2Id
+    })
+  ));
+}
+
+function getSocket(socketId) {
+  return sockets.find((item) => {
+    return item.id === socketId;
+  });
+}
+function findGameBySocket(socketId) {
+  return games.find((item) => {
+    return item.socket1Id == socketId || item.socket2Id == socketId;
+  });
+}
+function getOtherSocket(game, socketId) {
+  return getSocket(game.socket1Id == socketId ? game.socket2Id : game.socket1Id);
+}
