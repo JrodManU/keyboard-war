@@ -6,6 +6,12 @@ const port = 3000;
 
 const app = express();
 
+//global variables not directly related to the server
+const LOBBY_KEY = "lobby";
+let games = [];
+let sockets = [];
+let idCounter = 1;
+
 //make it so we can connect from the react server
 app.use(cors());
 
@@ -14,10 +20,7 @@ const server = app.listen(port, () => {
   console.log("Server started on port 3000...")
 });
 
-let games = [];
-let sockets = [];
-let idCounter = 1;
-
+//routes
 app.get("/get_games", (req, res) => {
   res.json(games);
 });
@@ -27,6 +30,7 @@ io = socketIo(server, { transports: ['websocket', 'xhr-polling'] });
 
 io.on('connection', (socket) => {
   sockets.push(socket);
+  socket.join(LOBBY_KEY);
   console.log('A user connected');
 
   socket.on('disconnect', () => {
@@ -39,7 +43,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('create game', (name) => {
-    console.log("game " + name + " created");
     games.push({
       id: idCounter,
       name: name,
@@ -47,17 +50,23 @@ io.on('connection', (socket) => {
       socket2Id: null
     });
     idCounter++;
+    console.log("game " + name + " created");
     emitUpdatedGameList();
   });
 
   socket.on('join game', (gameId) => {
     let game = games.find((item) => {
-      return item.id == gameId;
+      return item.id === gameId;
     });
-    console.log("game " + game.name + " started");
+    //Both join the room once a second person joins the game
+    otherSocket = io.sockets.connected[game.socket1Id];
     game.socket2Id = socket.id;
-    getSocket(game.socket1Id).emit("game started", game);
-    socket.emit("game started", game);
+    socket.leave(LOBBY_KEY);
+    socket.join(game.id);
+    otherSocket.leave(LOBBY_KEY);
+    otherSocket.join(game.id);
+    io.in(game.id).emit("game started", game);
+    console.log("game " + game.name + " started");
     emitUpdatedGameList();
   });
 
@@ -69,8 +78,12 @@ io.on('connection', (socket) => {
 function quitSocketsGame(socketId) {
   let game = findGameBySocket(socketId);
   if(game) {
-    getSocket(socketId).emit("game ended");
-    getOtherSocket(game, socketId).emit("game ended");
+    io.in(game.id).emit("game ended");
+    //empties room to be disposed
+    socketIds = Object.keys(io.sockets.adapter.rooms[game.id].sockets);
+    socketIds.forEach((item) => {
+      io.sockets.connected[item].leave(game.id);
+    });
     //removes the game
     games = games.filter((item) => {
       return item.id !== game.id;
@@ -82,24 +95,15 @@ function quitSocketsGame(socketId) {
 }
 
 function emitUpdatedGameList() {
-  io.emit("update game list", JSON.stringify(
+  io.in(LOBBY_KEY).emit("update game list", JSON.stringify(
     games.filter((item) => {
       //Will return games that have not been joined yet
       return !item.socket2Id
     })
   ));
 }
-
-function getSocket(socketId) {
-  return sockets.find((item) => {
-    return item.id === socketId;
-  });
-}
 function findGameBySocket(socketId) {
   return games.find((item) => {
     return item.socket1Id == socketId || item.socket2Id == socketId;
   });
-}
-function getOtherSocket(game, socketId) {
-  return getSocket(game.socket1Id == socketId ? game.socket2Id : game.socket1Id);
 }
